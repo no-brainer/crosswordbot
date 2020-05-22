@@ -46,6 +46,9 @@ def on_timeout(update, context):
     return ConversationHandler.END
 
 def on_cancel(update, context):
+    """
+    Prints cancellation message on command
+    """
     update.message.reply_text(settings.CANCEL_MSG)
     return ConversationHandler.END
 
