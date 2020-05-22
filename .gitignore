@@ -1,0 +1,5 @@
+.venv
+
+**.env
+**.pylintrc
+**__pycache__
