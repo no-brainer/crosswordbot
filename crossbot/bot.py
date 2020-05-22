@@ -29,7 +29,7 @@ def on_start(update, context):
     """
     Prints introduction and explains commands
     """
-    update.message.reply_text(settings.START_MSG, parse_mode=telegram.ParseMode.MARKDOWN_V2)
+    update.message.reply_markdown_v2(settings.START_MSG)
 
 def on_new_crossword(update, context):
     update.message.reply_text(settings.LOADING_MSG)
