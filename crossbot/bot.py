@@ -5,6 +5,7 @@ from enum import IntEnum, auto
 import logging
 import random
 
+import telegram
 from telegram.ext import Filters, Updater, CommandHandler, ConversationHandler, MessageHandler
 
 from crossbot.crossword import Crossword
@@ -28,14 +29,13 @@ def on_start(update, context):
     """
     Prints introduction and explains commands
     """
-    update.message.reply_text(settings.START_MSG)
+    update.message.reply_text(settings.START_MSG, parse_mode=telegram.ParseMode.MARKDOWN_V2)
 
 def on_new_crossword(update, context):
     update.message.reply_text(settings.LOADING_MSG)
     cw = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
     update.message.reply_text(settings.READY_MSG)
-    logger.info(cw.img_link)
-    update.message.reply_text(photo=cw.img_link)
+    update.message.reply_photo(photo=cw.img_link)
     return ConversationHandler.END
 
 
