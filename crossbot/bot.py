@@ -34,6 +34,7 @@ def on_new_crossword(update, context):
     update.message.reply_text(settings.LOADING_MSG)
     cw = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
     update.message.reply_text(settings.READY_MSG)
+    logger.info(cw.img_link)
     update.message.reply_text(photo=cw.img_link)
     return ConversationHandler.END
 
