@@ -217,7 +217,16 @@ class Crossword:
             key=lambda x: int(x[1].id)
         )))
         return vert_qs, hor_qs
-  
+
+    @property
+    def is_filled(self):
+        result = True
+        for row in self.grid:
+            for cell in row:
+                if cell.center and not cell.symbol:
+                    result = False
+        return result
+
 
 def img_to_number(digit):
     values = [

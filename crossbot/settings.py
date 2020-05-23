@@ -47,9 +47,9 @@ READY_MSG = (
     u"Готово!"
 )
 QUESTIONS_TEMPLATE_MSG = (
-    u"*По вертикали:*\n"
+    u"<b>По вертикали:</b>\n"
     "{}\n"
-    "*По горизонали:*\n"
+    "<b>По горизонали:</b>\n"
     "{}"
 )
 ANSWER_TOO_LONG_MSG = (
