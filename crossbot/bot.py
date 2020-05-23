@@ -68,7 +68,6 @@ def on_ans(update, context):
         media=new_im,
     )
 
-    update.message.reply_photo(photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
     return ConversationState.WAITING_ANSWERS
 
 def on_timeout(update, context):
