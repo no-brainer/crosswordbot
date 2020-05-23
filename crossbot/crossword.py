@@ -196,7 +196,6 @@ class Crossword:
         cur_im.name = 'cwrd.png'
         pil_img.save(cur_im, 'PNG')
         cur_im.seek(0)
-        logger.warn(cur_im)
         return cur_im
 
     def set_answer(self, question_id, answer):
@@ -276,7 +275,8 @@ def im_to_grid_coords(point, grid_shape, im_shape):
 
 if __name__ == "__main__":
     cwrd = Crossword(179)
-    cur_state = cwrd.cur_state()
     print(*cwrd.list_questions())
-    # with open("f.png", "wb") as f:
-    #     f.write(cur_state.read())
+    cwrd.set_answer("V3", "тандем")
+    cur_state = cwrd.cur_state()
+    with open("f.png", "wb") as f:
+        f.write(cur_state.read())

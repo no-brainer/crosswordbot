@@ -56,12 +56,13 @@ def on_ans(update, context):
         context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(*context.args)
     except ValueError:
         update.message.reply_text(settings.ANSWER_TOO_LONG_MSG)
-    new_im = InputMediaPhoto(context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
-    context.bot.edit_message_media(
-        chat_id=update.message.chat_id,
-        message_id=context.chat_data[StoredValue.MESSAGE_ID],
-        media=new_im,
-    )
+    # new_im = InputMediaPhoto(context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
+    # context.bot.edit_message_media(
+    #     chat_id=update.message.chat_id,
+    #     message_id=context.chat_data[StoredValue.MESSAGE_ID],
+    #     media=new_im,
+    # )
+    update.message.reply_photo(photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
     return ConversationState.WAITING_ANSWERS
 
 def on_timeout(update, context):
