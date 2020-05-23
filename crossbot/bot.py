@@ -15,8 +15,13 @@ import crossbot.settings as settings
 logger = logging.getLogger(__name__)
 
 
-class CrosswordState(IntEnum):
+class ConversationState(IntEnum):
     WAITING_ANSWERS = auto()
+
+
+class StoredValue(IntEnum):
+    MESSAGE_ID = auto()
+    CROSSWORD_STATE = auto()
 
 
 def on_error(update, context):
@@ -33,16 +38,31 @@ def on_start(update, context):
 
 def on_new_crossword(update, context):
     update.message.reply_text(settings.LOADING_MSG)
-    cw = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
+    cwrd = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
     update.message.reply_text(settings.READY_MSG)
-    update.message.reply_photo(photo=cw.img_link)
-    return ConversationHandler.END
-
+    update.reply_markdown_v2(settings.QUESTIONS_TEMPLATE_MSG.format(*cwrd.list_questions()))
+    cwrd_msg_id = update.message.reply_photo(photo=cwrd.cur_state()).message_id
+    context.chat_data[StoredValue.CROSSWORD_STATE] = cwrd
+    context.chat_data[StoredValue.MESSAGE_ID] = cwrd_msg_id
+    return ConversationState.WAITING_ANSWERS
 
 def on_ans(update, context):
-    pass
+    if len(context.args) != 2 or context.args[0][0] not in ["H", "V"]:
+        update.message.reply_markdown_v2(settings.INCORRECT_FORMAT_MSG)
+        return ConversationState.WAITING_ANSWERS
+    try:
+        context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(context.args[1])
+    except ValueError:
+        update.message.reply_text(settings.ANSWER_TOO_LONG_MSG)
+    context.bot.edit_message_media(
+        chat_id=update.message.chat_id,
+        message_id=context.chat_data[StoredValue.MESSAGE_ID],
+        photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state(),
+    )
+    
 
 def on_timeout(update, context):
+    context.chat_data.clear()
     update.message.reply_text(settings.TIMEOUT_MSG)
     return ConversationHandler.END
 
@@ -50,6 +70,7 @@ def on_cancel(update, context):
     """
     Prints cancellation message on command
     """
+    context.chat_data.clear()
     update.message.reply_text(settings.CANCEL_MSG)
     return ConversationHandler.END
 
@@ -67,7 +88,7 @@ def prepare_updater():
             CommandHandler('newcrossword', on_new_crossword),
         ],
         states={
-            CrosswordState.WAITING_ANSWERS: [
+            ConversationState.WAITING_ANSWERS: [
                 CommandHandler('ans', on_ans)
             ],
             ConversationHandler.TIMEOUT: [
