@@ -2,6 +2,7 @@
 Pulls crossword data from https://absite.ru/crossw/
 """
 from io import BytesIO
+import logging
 
 from bs4 import BeautifulSoup
 import cv2
@@ -11,6 +12,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import requests
 from skimage import io
+
+
+logger = logging.getLogger(__name__)
 
 
 class Crossword:
@@ -181,6 +185,7 @@ class Crossword:
         pil_img = Image.fromarray(cur_im, "RGBA")
         unicode_font = ImageFont.truetype("DejaVuSans.ttf", size=14)
         draw = ImageDraw.Draw(pil_img)
+        logger.warn(self.grid)
         for row in self.grid:
             for cell in row:
                 if not cell.symbol or not cell.center:
@@ -188,7 +193,6 @@ class Crossword:
                 text_size = unicode_font.getsize(cell.symbol)
                 text_place = (cell.center[0] - text_size[0] // 2, cell.center[1] - text_size[1] // 2)
                 draw.text(text_place, cell.symbol, font=unicode_font, fill=(0, 0, 0))
-                
         cur_im = BytesIO()
         cur_im.name = 'cwrd.png'
         pil_img.save(cur_im, 'PNG')
