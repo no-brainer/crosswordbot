@@ -53,7 +53,7 @@ def on_ans(update, context):
         update.message.reply_markdown_v2(settings.INCORRECT_FORMAT_MSG)
         return ConversationState.WAITING_ANSWERS
     try:
-        context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(context.args[1])
+        context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(*context.args)
     except ValueError:
         update.message.reply_text(settings.ANSWER_TOO_LONG_MSG)
     context.bot.edit_message_media(

@@ -226,6 +226,16 @@ class Crossword:
                 if cell.center and not cell.symbol:
                     result = False
         return result
+    
+    @property
+    def is_solved(self):
+        result = True
+        for num, question in self.qs:
+            for d, symb in enumerate(question.ans):
+                result = result and symb == (
+                    self.grid[x + d][y].symbol if num[0] == "H" else self.grid[x][y + d].symbol
+                )
+        return result
 
 
 def img_to_number(digit):
