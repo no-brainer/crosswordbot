@@ -40,7 +40,7 @@ def on_new_crossword(update, context):
     update.message.reply_text(settings.LOADING_MSG)
     cwrd = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
     update.message.reply_text(settings.READY_MSG)
-    update.reply_markdown_v2(settings.QUESTIONS_TEMPLATE_MSG.format(*cwrd.list_questions()))
+    update.message.reply_markdown_v2(settings.QUESTIONS_TEMPLATE_MSG.format(*cwrd.list_questions()))
     cwrd_msg_id = update.message.reply_photo(photo=cwrd.cur_state()).message_id
     context.chat_data[StoredValue.CROSSWORD_STATE] = cwrd
     context.chat_data[StoredValue.MESSAGE_ID] = cwrd_msg_id
@@ -59,7 +59,7 @@ def on_ans(update, context):
         message_id=context.chat_data[StoredValue.MESSAGE_ID],
         photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state(),
     )
-    
+    return ConversationState.WAITING_ANSWERS
 
 def on_timeout(update, context):
     context.chat_data.clear()
