@@ -185,7 +185,6 @@ class Crossword:
         pil_img = Image.fromarray(cur_im, "RGBA")
         unicode_font = ImageFont.truetype("DejaVuSans.ttf", size=14)
         draw = ImageDraw.Draw(pil_img)
-        logger.warn(self.grid)
         for row in self.grid:
             for cell in row:
                 if not cell.symbol or not cell.center:
@@ -198,7 +197,7 @@ class Crossword:
         pil_img.save(cur_im, 'PNG')
         cur_im.seek(0)
         return cur_im
-    
+
     def set_answer(self, question_id, answer):
         direction = question_id[0]
         question = self.qs[question_id]

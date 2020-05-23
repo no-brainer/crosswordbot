@@ -56,7 +56,7 @@ def on_ans(update, context):
         context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(*context.args)
     except ValueError:
         update.message.reply_text(settings.ANSWER_TOO_LONG_MSG)
-    context.bot.edit_message_media(
+    context.bot.edit_media(
         chat_id=update.message.chat_id,
         message_id=context.chat_data[StoredValue.MESSAGE_ID],
         photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state(),
