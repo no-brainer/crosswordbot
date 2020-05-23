@@ -13,6 +13,8 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 from skimage import io
 
+import crossbot.settings as settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +204,10 @@ class Crossword:
         direction = question_id[0]
         question = self.qs[question_id]
         if len(answer) > len(question.ans):
-            raise ValueError("Очень длинный ответ. Что-то здесь не так")
+            raise ValueError(settings.ANSWER_TOO_LONG_MSG)
+        elif len(answer) < len(question.ans):
+            raise ValueError(settings.ANSWER_TOO_SHORT_MSG)
+
         x, y = question.start_cell
         for d, symb in enumerate(answer):
             if direction == 'H':
