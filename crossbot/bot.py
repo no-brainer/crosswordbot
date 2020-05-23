@@ -58,30 +58,17 @@ def on_ans(update, context):
 
     try:
         context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(*context.args)
-    except ValueError:
-        update.message.reply_text(settings.ANSWER_TOO_LONG_MSG)
-
-    update.message.reply_photo(photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
-    return ConversationState.WAITING_ANSWERS
-
-def on_test_ans(update, context):
-    if not context.args or context.args[0][0] not in ["H", "V"]:
-        update.message.reply_markdown_v2(settings.INCORRECT_FORMAT_MSG)
-        return ConversationState.WAITING_ANSWERS
-    args = context.args.copy()
-    if len(args) < 2:
-        args.append('')
-
-    try:
-        context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(*context.args)
     except ValueError as e:
         update.message.reply_text(e.args[0])
+
     new_im = InputMediaPhoto(media=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
     context.bot.edit_message_media(
         chat_id=update.message.chat_id,
         message_id=context.chat_data[StoredValue.MESSAGE_ID],
         media=new_im,
     )
+
+    update.message.reply_photo(photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
     return ConversationState.WAITING_ANSWERS
 
 def on_timeout(update, context):
@@ -112,7 +99,7 @@ def prepare_updater():
         states={
             ConversationState.WAITING_ANSWERS: [
                 CommandHandler("ans", on_ans),
-                CommandHandler("testans", on_test_ans)
+                # CommandHandler("testans", on_test_ans)
             ],
             ConversationHandler.TIMEOUT: [
                 MessageHandler(Filters.all, on_timeout),
