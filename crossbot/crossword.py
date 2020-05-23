@@ -231,6 +231,7 @@ class Crossword:
     def is_solved(self):
         result = True
         for num, question in self.qs:
+            x, y = question.start_cell
             for d, symb in enumerate(question.ans):
                 result = result and symb == (
                     self.grid[x + d][y].symbol if num[0] == "H" else self.grid[x][y + d].symbol
