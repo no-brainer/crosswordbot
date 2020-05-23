@@ -41,7 +41,7 @@ def on_new_crossword(update, context):
     cwrd = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
     context.chat_data[StoredValue.CROSSWORD_STATE] = cwrd
     update.message.reply_text(settings.READY_MSG)
-    update.message.reply_HTML(
+    update.message.reply_html(
         settings.QUESTIONS_TEMPLATE_MSG.format(*cwrd.list_questions())
     )
     cwrd_msg_id = update.message.reply_photo(photo=cwrd.cur_state()).message_id
@@ -75,7 +75,6 @@ def on_cancel(update, context):
     context.chat_data.clear()
     update.message.reply_text(settings.CANCEL_MSG)
     return ConversationHandler.END
-
 
 def prepare_updater():
     """
