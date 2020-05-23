@@ -5,7 +5,7 @@ from enum import IntEnum, auto
 import logging
 import random
 
-import telegram
+from telegram import InputMediaPhoto
 from telegram.ext import Filters, Updater, CommandHandler, ConversationHandler, MessageHandler
 
 from crossbot.crossword import Crossword
@@ -56,10 +56,11 @@ def on_ans(update, context):
         context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(*context.args)
     except ValueError:
         update.message.reply_text(settings.ANSWER_TOO_LONG_MSG)
-    context.bot.edit_media(
+    new_im = InputMediaPhoto(context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
+    context.bot.edit_message_media(
         chat_id=update.message.chat_id,
         message_id=context.chat_data[StoredValue.MESSAGE_ID],
-        photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state(),
+        media=new_im,
     )
     return ConversationState.WAITING_ANSWERS
 
