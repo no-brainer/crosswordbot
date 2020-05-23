@@ -196,6 +196,7 @@ class Crossword:
         cur_im.name = 'cwrd.png'
         pil_img.save(cur_im, 'PNG')
         cur_im.seek(0)
+        logger.warn(cur_im)
         return cur_im
 
     def set_answer(self, question_id, answer):
