@@ -3,20 +3,29 @@ Pulls crossword data from https://absite.ru/crossw/
 """
 from io import BytesIO
 import logging
+from random import randint
 
 from bs4 import BeautifulSoup
 import cv2
 import imutils
 from imutils import contours
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+import pytesseract
 import requests
 from skimage import io
 
-import crossbot.settings as settings
+try:
+    import crossbot.settings as settings
+except ImportError:
+    import settings as settings
 
 
 logger = logging.getLogger(__name__)
+
+
+class ParseException(Exception):
+    pass
 
 
 class Crossword:
@@ -29,7 +38,13 @@ class Crossword:
             self.start_cell = None
 
         def __str__(self):
-            return f"{self.id}. {self.q}"
+            ans_len = len(self.ans)
+            conj = "букв"
+            if ans_len // 10 != 1 and ans_len % 10 == 1:
+                conj = "буква"
+            elif ans_len // 10 != 1 and ans_len % 10 in [2, 3]:
+                conj = "буквы"
+            return f"{self.id}. {self.q} ({ans_len} {conj})"
 
         def __repr__(self):
             return f"Question<{self.q} -> {self.ans}>"
@@ -55,6 +70,8 @@ class Crossword:
         self._load_questions()
         self._get_img()
         self._prep_img()
+
+        self._validate()
 
     def _fill_answers(self, soup):
         ans_div = soup.find(
@@ -112,22 +129,28 @@ class Crossword:
         soup = BeautifulSoup(resp.text, "html.parser")
         self._get_questions(soup)
 
-    def _prepare_grid(self, cell_cnts):
-        largest_cell_dims = (0, 0, 0, 0)
-        max_area = 0
-        for cnt in cell_cnts:
-            area = cv2.contourArea(cnt)
-            if area > max_area:
-                largest_cell_dims = cv2.boundingRect(cnt)
-                max_area = area
-        (x, y, w, h) = largest_cell_dims
-        grid_x, grid_y = self.orig_im.shape[0] // w, self.orig_im.shape[1] // h
+    def _prepare_grid(self, clean_grid_im):
+        row_mask = np.sum(clean_grid_im, axis=0)
+        col_mask = np.sum(clean_grid_im, axis=1)
+        for mask in [row_mask, col_mask]:
+            mask[mask != 0] = 1
+            mask[:mask.argmax()] = 1
+            last_one = len(mask) - np.flip(mask).argmax() - 1
+            mask[last_one:] = 1
+        grid_x = len(row_mask) - int(row_mask.sum()) + 1
+        grid_y = len(col_mask) - int(col_mask.sum()) + 1
         self.grid = [[Crossword._cell() for _ in range(grid_x)] for _ in range(grid_y)]
+        cnts, _ = cv2.findContours(np.outer(col_mask, row_mask).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in cnts:
+            center = contour_center(cnt)
+            x, y = point_to_grid_coords(center, row_mask, col_mask)
+            self.grid[x][y].center = center
+        return row_mask, col_mask
 
     def _prep_img(self):
         orig = self.orig_im.copy()
         gray = cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY)
-        gray[gray == 76] = 0
+        gray[np.logical_and(gray != 0, gray != 255)] = 0
         thresh = cv2.adaptiveThreshold(gray, 255, 1, 1, 11, 2)
 
         cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -137,34 +160,36 @@ class Crossword:
         internal = np.zeros_like(gray)
         internal[mask == 255] = gray[mask == 255]
 
+        row_mask, col_mask = self._prepare_grid(internal)
+
         cnts, _ = cv2.findContours(internal.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        self._prepare_grid(cnts)
         for cnt in cnts:
             (x, y, w, h) = cv2.boundingRect(cnt)
-            cnt_center = contour_center(cnt)
-            grid_coords = im_to_grid_coords(
-                cnt_center,
-                (len(self.grid), len(self.grid[0])),
-                self.orig_im.shape
-            )
-            self.grid[grid_coords[0]][grid_coords[1]].center = cnt_center
             inv_cell = cv2.bitwise_not(internal[y:y + h, x:x + w])
+            # first things first, gotta take care of these nasty 4 so that digits are separated
+            template = np.array(
+                [[255,   0],
+                 [255,   0],
+                 [255,   0],
+                 [255,   0],
+                 [255, 255],
+                 [255,   0],
+                 [255,   0]],
+                 np.uint8
+            )
+            result = cv2.matchTemplate(inv_cell, template, cv2.TM_CCOEFF_NORMED)
+            loc = np.where(result >= 0.9)
+            for point in zip(*loc[::-1]):
+                inv_cell[point[1] + 4, point[0] + 1] = 0
+
             symbols = cv2.findContours(inv_cell, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             symbols = imutils.grab_contours(symbols)
 
             digit_cnts = []
             for symb in symbols:
                 (symb_x, symb_y, symb_w, symb_h) = cv2.boundingRect(symb)
-                if symb_h == 7 and 4 >= symb_w > 1:
+                if symb_h > 5 and symb_w > 1:
                     digit_cnts.append(symb)
-                elif symb_h == 7 and symb_w > 4:
-                    multisymb = inv_cell[symb_y:symb_y + symb_h, symb_x:symb_x + symb_w].copy()
-                    multisymb[4, 4] = 0
-                    if symb_w >= 10:
-                        multisymb[4, 9] = 0
-                    multisymb_split, _ = cv2.findContours(multisymb, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    for subsymb in multisymb_split:
-                        digit_cnts.append(subsymb + np.array([symb_x, symb_y]))
             if not digit_cnts:
                 continue
 
@@ -177,7 +202,14 @@ class Crossword:
                 cell_num = cell_num * 10 + value
             for direction in ["H", "V"]:
                 if self.qs.get(direction + str(cell_num)) is not None:
+                    center = contour_center(cnt)
+                    grid_coords = point_to_grid_coords(center, row_mask, col_mask)
                     self.qs[direction + str(cell_num)].start_cell = grid_coords
+
+    def _validate(self):
+        for _, q in self.qs.items():
+            if q.start_cell is None:
+                raise ParseException()
 
     def cur_state(self):
         """
@@ -185,7 +217,7 @@ class Crossword:
         """
         cur_im = self.orig_im.copy()
         pil_img = Image.fromarray(cur_im, "RGBA")
-        unicode_font = ImageFont.truetype("DejaVuSans.ttf", size=14)
+        unicode_font = ImageFont.truetype("Arial.ttf", size=14)
         draw = ImageDraw.Draw(pil_img)
         for row in self.grid:
             for cell in row:
@@ -226,6 +258,17 @@ class Crossword:
         )))
         return vert_qs, hor_qs
 
+    def complete_crossword(self):
+        for num, q in self.qs.items():
+            if not q.start_cell:
+                continue
+            x, y = q.start_cell
+            for d, ans_symb in enumerate(q.ans):
+                if num[0] == 'H':
+                    self.grid[x + d][y].symbol = ans_symb
+                else:
+                    self.grid[x][y + d].symbol = ans_symb
+
     @property
     def is_filled(self):
         result = True
@@ -262,10 +305,15 @@ def img_to_number(digit):
     ]
     digit = digit.copy()
     digit[digit == 255] = 1
-    for value, value_image in enumerate(values):
-        if value_image.shape == digit.shape and (value_image == digit).all():
-            return value
-    return 0
+    scores = []
+    for value_template in values:
+        try:
+            result = cv2.matchTemplate(digit, value_template, cv2.TM_CCOEFF_NORMED)
+        except Exception:
+            continue
+        (_, score, _, _) = cv2.minMaxLoc(result)
+        scores.append(score)
+    return np.argmax(scores)
 
 def contour_center(cnt):
     M = cv2.moments(cnt)
@@ -273,15 +321,18 @@ def contour_center(cnt):
     y = int(M["m01"] / M["m00"])
     return x, y
 
-def im_to_grid_coords(point, grid_shape, im_shape):
-    x_size, y_size = im_shape[0] / grid_shape[0], im_shape[1] / grid_shape[1]
-    return int(point[0] / x_size), int(point[1] / y_size)
-
+def point_to_grid_coords(point, grid_row_mask, grid_col_mask):
+    x = point[0] - int(grid_row_mask[:point[0]].sum())
+    y = point[1] - int(grid_col_mask[:point[1]].sum())
+    return x, y
 
 if __name__ == "__main__":
-    cwrd = Crossword(179)
-    print(*cwrd.list_questions())
-    cwrd.set_answer("V3", "тандем")
-    cur_state = cwrd.cur_state()
-    with open("f.png", "wb") as f:
-        f.write(cur_state.read())
+    for _ in range(10):
+        try:
+            cwrd = Crossword(randint(1, 5000))
+        except Exception:
+            continue
+        cwrd.complete_crossword()
+        cur_state = cwrd.cur_state()
+        with open(f"f{cwrd.id}.png", "wb") as f:
+            f.write(cur_state.read())

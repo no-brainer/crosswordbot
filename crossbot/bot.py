@@ -4,6 +4,7 @@ This module contains various handlers for the bot as well as the initialization 
 from enum import IntEnum, auto
 import logging
 import random
+import time
 
 from telegram import InputMediaPhoto
 from telegram.ext import Filters, Updater, CommandHandler, ConversationHandler, MessageHandler
@@ -38,7 +39,12 @@ def on_start(update, context):
 
 def on_new_crossword(update, context):
     update.message.reply_text(settings.LOADING_MSG)
-    cwrd = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
+    is_created = False
+    while not is_created:
+        try:
+            cwrd = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
+        except Exception:
+            continue
     context.chat_data[StoredValue.CROSSWORD_STATE] = cwrd
     update.message.reply_text(settings.READY_MSG)
     update.message.reply_html(
@@ -46,6 +52,27 @@ def on_new_crossword(update, context):
     )
     cwrd_msg_id = update.message.reply_photo(photo=cwrd.cur_state()).message_id
     context.chat_data[StoredValue.MESSAGE_ID] = cwrd_msg_id
+    return ConversationState.WAITING_ANSWERS
+
+def on_fallback_ans(update, context):
+    if not context.args or context.args[0][0] not in ["H", "V"]:
+        update.message.reply_markdown_v2(settings.INCORRECT_FORMAT_MSG)
+        return ConversationState.WAITING_ANSWERS
+    args = context.args.copy()
+    if len(args) < 2:
+        args.append('')
+
+    try:
+        context.chat_data[StoredValue.CROSSWORD_STATE].set_answer(*context.args)
+    except ValueError as e:
+        update.message.reply_text(e.args[0])
+
+    cwrd_msg_id = context.bot.send_photo(
+        chat_id=update.message.chat_id,
+        photo=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state(),
+    )
+    context.chat_data[StoredValue.MESSAGE_ID] = cwrd_msg_id
+
     return ConversationState.WAITING_ANSWERS
 
 def on_ans(update, context):
@@ -67,8 +94,17 @@ def on_ans(update, context):
         message_id=context.chat_data[StoredValue.MESSAGE_ID],
         media=new_im,
     )
-
     return ConversationState.WAITING_ANSWERS
+
+def on_autocomplete(update, context):
+    context.chat_data[StoredValue.CROSSWORD_STATE].complete_crossword()
+    new_im = InputMediaPhoto(media=context.chat_data[StoredValue.CROSSWORD_STATE].cur_state())
+    context.bot.edit_message_media(
+        chat_id=update.message.chat_id,
+        message_id=context.chat_data[StoredValue.MESSAGE_ID],
+        media=new_im,
+    )
+    return ConversationHandler.END
 
 def on_timeout(update, context):
     context.chat_data.clear()
@@ -98,7 +134,8 @@ def prepare_updater():
         states={
             ConversationState.WAITING_ANSWERS: [
                 CommandHandler("ans", on_ans),
-                # CommandHandler("testans", on_test_ans)
+                CommandHandler("fallback_ans", on_fallback_ans),
+                CommandHandler("autocomplete", on_autocomplete),
             ],
             ConversationHandler.TIMEOUT: [
                 MessageHandler(Filters.all, on_timeout),
@@ -108,6 +145,7 @@ def prepare_updater():
             CommandHandler("cancel", on_cancel)
         ],
         conversation_timeout=settings.CROSSWORD_TIMEOUT,
+        per_user=False,
     ))
 
     dp.add_error_handler(on_error)
