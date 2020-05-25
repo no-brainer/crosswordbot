@@ -11,7 +11,6 @@ import imutils
 from imutils import contours
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-import pytesseract
 import requests
 from skimage import io
 
