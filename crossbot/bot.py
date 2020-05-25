@@ -45,6 +45,7 @@ def on_new_crossword(update, context):
             cwrd = Crossword(random.randint(1, settings.MAX_CROSSWORD_ID))
         except Exception:
             continue
+        is_created = True
     context.chat_data[StoredValue.CROSSWORD_STATE] = cwrd
     update.message.reply_text(settings.READY_MSG)
     update.message.reply_html(
