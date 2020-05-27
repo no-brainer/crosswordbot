@@ -14,10 +14,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 import requests
 from skimage import io
 
-try:
-    import crossbot.settings as settings
-except ImportError:
-    import settings as settings
+import crossbot.settings as settings
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +32,7 @@ class Crossword:
             self.q = q
             self.ans = None
             self.start_cell = None
+            self.is_attempted = False
 
         def __str__(self):
             ans_len = len(self.ans)
@@ -89,7 +87,7 @@ class Crossword:
                 i += 5
                 continue
             num = div_children[i].string
-            ans = div_children[i + 1].strip()
+            ans = div_children[i + 1].strip().replace("ё", "e")
             self.qs[direction + num].ans = ans[2:len(ans) - 1]
             i += 2
 
@@ -167,13 +165,13 @@ class Crossword:
             inv_cell = cv2.bitwise_not(internal[y:y + h, x:x + w])
             # first things first, gotta take care of these nasty 4 so that digits are separated
             template = np.array(
-                [[255,   0],
-                 [255,   0],
-                 [255,   0],
-                 [255,   0],
+                [[255, 0  ],
+                 [255, 0  ],
+                 [255, 0  ],
+                 [255, 0  ],
                  [255, 255],
-                 [255,   0],
-                 [255,   0]],
+                 [255, 0  ],
+                 [255, 0  ]],
                  np.uint8
             )
             result = cv2.matchTemplate(inv_cell, template, cv2.TM_CCOEFF_NORMED)
@@ -186,7 +184,7 @@ class Crossword:
 
             digit_cnts = []
             for symb in symbols:
-                (symb_x, symb_y, symb_w, symb_h) = cv2.boundingRect(symb)
+                (_, _, symb_w, symb_h) = cv2.boundingRect(symb)
                 if symb_h > 5 and symb_w > 1:
                     digit_cnts.append(symb)
             if not digit_cnts:
@@ -232,13 +230,14 @@ class Crossword:
         return cur_im
 
     def set_answer(self, question_id, answer):
+        answer = answer.lower().replace("ё", "e")
         direction = question_id[0]
         question = self.qs[question_id]
         if len(answer) > len(question.ans):
             raise ValueError(settings.ANSWER_TOO_LONG_MSG)
         elif len(answer) < len(question.ans):
             raise ValueError(settings.ANSWER_TOO_SHORT_MSG)
-
+        question.is_attempted = True
         x, y = question.start_cell
         for d, symb in enumerate(answer):
             if direction == 'H':
@@ -246,13 +245,35 @@ class Crossword:
             else:
                 self.grid[x][y + d].symbol = symb
 
-    def list_questions(self):
+    def list_unattempted_questions(self):
         hor_qs = "\n".join(map(lambda x: str(x[1]), sorted(
-            filter(lambda x: x[0][0] == 'H', self.qs.items()),
+            filter(lambda x: x[0][0] == 'H' and not x[1].is_attempted, self.qs.items()),
             key=lambda x: int(x[1].id)
         )))
         vert_qs = "\n".join(map(lambda x: str(x[1]), sorted(
-            filter(lambda x: x[0][0] == 'V', self.qs.items()),
+            filter(lambda x: x[0][0] == 'V' and not x[1].is_attempted, self.qs.items()),
+            key=lambda x: int(x[1].id)
+        )))
+        return vert_qs, hor_qs
+
+    def list_unsolved_questions(self):
+        all_unsolved = dict()
+        for num, question in self.qs:
+            is_solved = True
+            x, y = question.start_cell
+            for d, symb in enumerate(question.ans):
+                cwrd_symb = (
+                    self.grid[x + d][y].symbol if num[0] == "H" else self.grid[x][y + d].symbol
+                )
+                is_solved = is_solved and cwrd_symb == symb
+            if not is_solved:
+                all_unsolved[num] = question
+        hor_qs = "\n".join(map(lambda x: str(x[1]), sorted(
+            filter(lambda x: x[0][0] == 'H', all_unsolved),
+            key=lambda x: int(x[1].id)
+        )))
+        vert_qs = "\n".join(map(lambda x: str(x[1]), sorted(
+            filter(lambda x: x[0][0] == 'V', all_unsolved),
             key=lambda x: int(x[1].id)
         )))
         return vert_qs, hor_qs
@@ -271,21 +292,20 @@ class Crossword:
     @property
     def is_filled(self):
         result = True
-        for row in self.grid:
-            for cell in row:
-                if cell.center and not cell.symbol:
-                    result = False
+        for q in self.qs:
+            result = result and q.is_attempted
         return result
-    
+
     @property
     def is_solved(self):
         result = True
         for num, question in self.qs:
             x, y = question.start_cell
             for d, symb in enumerate(question.ans):
-                result = result and symb == (
+                cwrd_symb = (
                     self.grid[x + d][y].symbol if num[0] == "H" else self.grid[x][y + d].symbol
                 )
+                result = result and cwrd_symb == symb
         return result
 
 
