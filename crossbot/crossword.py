@@ -310,24 +310,13 @@ class Crossword:
 
 
 def img_to_number(digit):
-    values = [
-        np.array([[0, 1, 1, 0], [1, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 1], [1, 1, 1, 0]], np.uint8),  # 0
-        np.array([[0, 1]      , [1, 1]      , [0, 1]      , [0, 1]      , [0, 1]      , [0, 1]      , [0, 1]      ], np.uint8),  # 1
-        np.array([[0, 1, 1, 0], [1, 0, 0, 1], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 0], [0, 1, 0, 0], [1, 1, 1, 1]], np.uint8),  # 2
-        np.array([[0, 1, 1, 0], [1, 0, 0, 1], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1], [1, 0, 0, 1], [0, 1, 1, 0]], np.uint8),  # 3
-        np.array([[0, 0, 0, 1], [0, 0, 1, 1], [0, 1, 0, 1], [1, 0, 0, 1], [1, 1, 1, 1], [0, 0, 0, 1], [0, 0, 0, 1]], np.uint8),  # 4
-        np.array([[0, 1, 1, 1], [0, 1, 0, 0], [1, 1, 1, 0], [1, 0, 0, 1], [0, 0, 0, 1], [1, 0, 0, 1], [0, 1, 1, 0]], np.uint8),  # 5
-        np.array([[0, 1, 1, 0], [1, 0, 0, 1], [1, 1, 1, 0], [1, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 1], [0, 1, 1, 0]], np.uint8),  # 6
-        np.array([[1, 1, 1, 1], [0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]], np.uint8),  # 7
-        np.array([[0, 1, 1, 0], [1, 0, 0, 1], [1, 0, 0, 1], [0, 1, 1, 0], [1, 0, 0, 1], [1, 0, 0, 1], [0, 1, 1, 0]], np.uint8),  # 8
-        np.array([[0, 1, 1, 0], [1, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 1], [0, 1, 1, 1], [1, 0, 0, 1], [0, 1, 1, 0]], np.uint8),  # 9
-    ]
     digit = digit.copy()
     digit[digit == 255] = 1
     scores = []
-    for value_template in values:
+    for value_template in settings.NUMBER_TEMPLATES:
+        template = np.array(value_template, dtype=np.uint8)
         try:
-            result = cv2.matchTemplate(digit, value_template, cv2.TM_CCOEFF_NORMED)
+            result = cv2.matchTemplate(digit, template, cv2.TM_CCOEFF_NORMED)
         except Exception:
             continue
         (_, score, _, _) = cv2.minMaxLoc(result)
