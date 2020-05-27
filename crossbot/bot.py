@@ -78,7 +78,7 @@ def on_new_crossword(update, context):
         text=settings.QUESTIONS_TEMPLATE_MSG.format(*cwrd.list_unattempted_questions()),
         parse_mode=ParseMode.HTML,
     )
-    cwrd_msg = update.message.reply_photo(photo=cwrd.cur_state()).message_id
+    cwrd_msg = update.message.reply_photo(photo=cwrd.cur_state())
     context.chat_data[StoredValue.CROSSWORD_MSG_ID] = cwrd_msg.message_id
     context.chat_data[StoredValue.QUESTION_MSG_ID] = question_msg.message_id
     return ConversationState.WAITING_ANSWERS
