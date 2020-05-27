@@ -292,7 +292,7 @@ class Crossword:
     @property
     def is_filled(self):
         result = True
-        for q in self.qs:
+        for _, q in self.qs:
             result = result and q.is_attempted
         return result
 
