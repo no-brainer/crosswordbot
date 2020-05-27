@@ -258,7 +258,7 @@ class Crossword:
 
     def list_unsolved_questions(self):
         all_unsolved = dict()
-        for num, question in self.qs:
+        for num, question in self.qs.items():
             is_solved = True
             x, y = question.start_cell
             for d, symb in enumerate(question.ans):
@@ -292,14 +292,14 @@ class Crossword:
     @property
     def is_filled(self):
         result = True
-        for _, q in self.qs:
+        for _, q in self.qs.items():
             result = result and q.is_attempted
         return result
 
     @property
     def is_solved(self):
         result = True
-        for num, question in self.qs:
+        for num, question in self.qs.items():
             x, y = question.start_cell
             for d, symb in enumerate(question.ans):
                 cwrd_symb = (
