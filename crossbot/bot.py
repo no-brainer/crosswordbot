@@ -164,9 +164,9 @@ def on_timeout(update, context):
     """
     Warns about timeout, shows correct answers, and exits
     """
-    context.chat_data.clear()
     update.message.reply_text(settings.TIMEOUT_MSG)
-    return on_autocomplete(update, context)
+    on_autocomplete(update, context)
+    return ConversationHandler.END
 
 def on_cancel(update, context):
     """
